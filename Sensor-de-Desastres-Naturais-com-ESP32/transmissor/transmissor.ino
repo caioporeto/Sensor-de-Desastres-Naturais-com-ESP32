@@ -13,7 +13,7 @@ void setup() {
 }
 
 void loop() {
-    const char *msg = "victor caio";
+    const char *msg = "AAA37graus";
     Serial.println("Enviando mensagem...");
     driver.send((uint8_t *)msg, strlen(msg));
     driver.waitPacketSent();
