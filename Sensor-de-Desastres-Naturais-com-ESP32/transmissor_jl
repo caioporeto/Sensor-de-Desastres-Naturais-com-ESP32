@@ -13,10 +13,6 @@ void setup() {
   ledcWrite(OUTPUT_PIN1, 128); // duty cicle de 50% (128 é metade de 256 [2^8])
   Serial.println(" Onda quadrada de 125 kHz gerada! ");
   pinMode(16, OUTPUT);
-  //sleep(5);
-  
-  //sleep(5);
-  
 }
 
 void loop() {
