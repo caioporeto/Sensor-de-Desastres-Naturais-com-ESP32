@@ -16,7 +16,6 @@ void setup() {
 }
 
 void loop() {
-  setup();
   digitalWrite(OUTPUT_PIN2, HIGH);
   delay(5000);
   digitalWrite(OUTPUT_PIN2, LOW);
