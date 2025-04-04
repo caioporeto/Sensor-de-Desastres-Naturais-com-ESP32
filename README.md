@@ -43,7 +43,7 @@ Os dados podem ser visualizados em tempo real em plataformas como **Grafana** ou
 
 ## Contato
 
-- 📧 Email: mailto\:caioporeto@usp.br
+- 📧 Email: caioporeto@usp.br
              mailto\:joaovx2@usp.br
              mailto\:luanguio9@usp.br
              mailto\:victor_carvalho@usp.br
