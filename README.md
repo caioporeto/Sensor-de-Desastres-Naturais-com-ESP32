@@ -1,8 +1,6 @@
 
 # Projeto de Comunicação e Transmissão para Sensor de Desastres Naturais 
 
----
-
 ## Visão Geral 
 
 Este projeto implementa um sistema de comunicação para sensores de monitoramento de desastres naturais. Ele permite a coleta, processamento e transmissão de dados em tempo real para um servidor central, possibilitando alertas e respostas rápidas.
