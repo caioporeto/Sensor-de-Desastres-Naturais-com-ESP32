@@ -43,7 +43,10 @@ Os dados podem ser visualizados em tempo real em plataformas como **Grafana** ou
 
 ## Contato
 
-- 📧 Email: [seuemail@exemplo.com](mailto\:seuemail@exemplo.com)
+- 📧 Email: mailto\:caioporeto@usp.br
+             mailto\:joaovx2@usp.br
+             mailto\:luanguio9@usp.br
+             mailto\:victor_carvalho@usp.br
 - 🌐 GitHub: https://github.com/caioporeto/Sensor-de-Desastres-Naturais-com-ESP32.git
 
 ---
