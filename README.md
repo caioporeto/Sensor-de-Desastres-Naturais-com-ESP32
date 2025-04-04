@@ -1,5 +1,7 @@
 
-Projeto de Comunicação e Transmissão para Sensor de Desastres Naturais 
+# Projeto de Comunicação e Transmissão para Sensor de Desastres Naturais 
+
+---
 
 ## Visão Geral 
 
@@ -51,5 +53,4 @@ Os dados podem ser visualizados em tempo real em plataformas como **Grafana** ou
 
 ---
 
-Projeto desenvolvido para melhorar a detecção e resposta a desastres naturais, garantindo segurança e monitoramento eficiente.
-
+*Projeto desenvolvido para melhorar a detecção e resposta a desastres naturais, garantindo segurança e monitoramento eficiente.*
