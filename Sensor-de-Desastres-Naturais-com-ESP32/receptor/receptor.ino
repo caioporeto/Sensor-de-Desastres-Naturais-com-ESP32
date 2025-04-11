@@ -1,50 +1,46 @@
+RECEPTOR:
 #include <RH_ASK.h>
 #include <SPI.h>
 
-#define LED_BUILTIN 2  // Definindo o pino do LED (geralmente é o pino 2)
+#define LED_BUILTIN 2  // Pino do LED (geralmente 2)
 
-RH_ASK driver(9600, 4, 17, -1);  // Configuração do driver RF com RX no pino 16 e TX no pino 17
+RH_ASK driver(2000, 4, 17, -1);  // RX no pino 16 (GPIO 4), TX no pino 17
 
 void setup() {
-  Serial.begin(9600);  // Inicializa a comunicação serial a 9600 bauds
+  Serial.begin(9600);
 
-  // Inicializa o driver de comunicação RF
   if (!driver.init()) {
-    Serial.println("Erro ao iniciar RF");  // Se a inicialização falhar
+    Serial.println("Erro ao iniciar RF");
   } else {
-    Serial.println("RF iniciado com sucesso");  // Se a inicialização for bem-sucedida
+    Serial.println("RF iniciado com sucesso");
   }
 
-  pinMode(LED_BUILTIN, OUTPUT);  // Configura o LED como saída
+  pinMode(LED_BUILTIN, OUTPUT);
+  digitalWrite(LED_BUILTIN, LOW);
 }
 
 void loop() {
-  uint8_t buf[32];  // Buffer para armazenar dados recebidos
-  uint8_t buflen = sizeof(buf);  // Tamanho do buffer
+  uint8_t buf[32];
+  uint8_t buflen = sizeof(buf);
+  unsigned long lastSendTime = millis();
+  const unsigned long sendInterval = 100;  // Tempo entre os envios (ms)
+  // Escuta por determinado intervalo
+  while( (millis() - lastSendTime < sendInterval) ) {
+    if (driver.recv(buf, &buflen)) {
+      buf[buflen] = '\0';  // Garante terminação nula
+      String receivedMessage = String((char*)buf);
 
-  // Verifica se há dados recebidos
-  if (driver.recv(buf, &buflen)) {
-    // Converte o buffer em uma string
-    String receivedMessage = String((char*)buf);
+      // Serial.print("Recebido: ");
+      Serial.println(receivedMessage);
 
-    // Imprime a mensagem recebida no monitor serial
-    Serial.print("Recebido: ");
-    Serial.println(receivedMessage);
-
-    // Se a mensagem recebida for "A", envia "C"
-    if (receivedMessage == "A") {
-      Serial.println("Enviando mensagem X...");
-      const char *msg = "X";  // Mensagem a ser enviada
-      driver.send((uint8_t *)msg, strlen(msg));  // Envia a mensagem via RF
-      driver.waitPacketSent();  // Espera até que o pacote seja completamente enviado
-      digitalWrite(LED_BUILTIN, HIGH);  // Acende o LED para indicar que a mensagem foi enviada
-    } else {
-      digitalWrite(LED_BUILTIN, LOW);  // Se a mensagem não for "A", o LED será apagado
+      if (strcmp((char*)buf, "A") == 0) {
+        // Serial.println("Enviando mensagem X...");
+        const char *msg = "X";
+        driver.send((uint8_t *)msg, strlen(msg));
+        driver.waitPacketSent();
+        digitalWrite(LED_BUILTIN, HIGH);
+      }
     }
-  } else {
-    // Se não houver mensagem recebida, apaga o LED
-    digitalWrite(LED_BUILTIN, LOW);
   }
-
-  // delay(100);  // Aguarda um curto intervalo antes de verificar novamente
+ digitalWrite(LED_BUILTIN, LOW);
 }
