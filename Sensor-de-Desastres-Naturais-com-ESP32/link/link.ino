@@ -12,6 +12,9 @@ void setup() {
   } else {
     Serial.println("RF iniciado com sucesso");
   }
+
+  driver.setThisAddress(2);  // Define o ID deste dispositivo como 2
+
   pinMode(LED_BUILTIN, OUTPUT);
   digitalWrite(LED_BUILTIN, LOW); // LED começa desligado
 }
@@ -22,32 +25,38 @@ void loop() {
   int lastSendTime = millis();
   int sendInterval = 50;
 
-  while(millis() - lastSendTime <= sendInterval){
+  // Escuta por um intervalo de tempo definido
+  while (millis() - lastSendTime <= sendInterval) {
     if (driver.recv(buf, &buflen)) {
       buf[buflen] = '\0';  // Garante que o buffer seja uma string válida
-      Serial.print("Recebido: ");
-      Serial.println((char*)buf);
+      // Serial.print("[");
+      // Serial.print(millis());
+      // Serial.print(" ms] Recebido: ");
+      // Serial.println((char*)buf);
+      
       digitalWrite(LED_BUILTIN, HIGH);
     
-    // Verifica o conteúdo recebido e envia a resposta apropriada
+      // Verifica o conteúdo recebido e envia a resposta apropriada
       if (strcmp((char*)buf, "U") == 0) {
         const char *msg = "A";
-        // Serial.println("Enviando resposta: A");
+        // Descomente a linha abaixo se desejar logar o envio com timestamp:
+        //  Serial.print("["); Serial.print(millis()); Serial.println(" ms] Enviando resposta: A");
         driver.send((uint8_t *)msg, strlen(msg));
         driver.waitPacketSent();
         // delay(25);
       }
       else if (strcmp((char*)buf, "X") == 0) {
         const char *msg = "V";
-        // Serial.println("Enviando resposta: V");
+        // Descomente a linha abaixo se desejar logar o envio com timestamp:
+        //  Serial.print("["); Serial.print(millis()); Serial.println(" ms] Enviando resposta: V");
         driver.send((uint8_t *)msg, strlen(msg));
         driver.waitPacketSent();
       }
     }
   }
-  // delay opcional, se necessário para estabilizar a comunicação
+  
+  // Delay opcional para estabilizar a comunicação, se necessário
   // delay(100);
   
   digitalWrite(LED_BUILTIN, LOW);
-  
 }
