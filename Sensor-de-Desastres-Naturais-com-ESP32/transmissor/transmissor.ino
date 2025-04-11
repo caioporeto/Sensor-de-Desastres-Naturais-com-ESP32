@@ -9,7 +9,7 @@ int confirmacao = 1;
 
 RH_ASK driver(2000, 4, 17, -1);
 
-int distancia(){
+float distancia(){
   long duration;
   float distance = 20;
 
@@ -48,15 +48,20 @@ void setup() {
   pinMode(echoPin, INPUT);
 }
 
+float dado;
+
 void loop() {
   uint8_t buf[32];
   uint8_t buflen = sizeof(buf);
+
+  char dadoString[10];
 
   int lastSendTime = millis();
   int sendInterval = 400;
 
   if (confirmacao == 1){
-    int dado = distancia();
+    dado = distancia();
+    dtostrf(dado, 0, 4, dadoString);
     confirmacao = 0;
   }
 
@@ -69,19 +74,35 @@ void loop() {
       // Serial.print(" ms] Recebido: ");
       // Serial.println((char*)buf);
       
+      char bufferCopia[32];
+      strcpy(bufferCopia, (char*)buf);
+
+      char *id = strtok(bufferCopia, ":");      // Pega a parte antes dos dois-pontos
+      char *dado_recebido = strtok(nullptr, "");         // Pega o restante da string
+
       digitalWrite(LED_BUILTIN, HIGH);
       // Se a mensagem recebida for "V", imprime "ACABOU" e interrompe o loop
-      if (strcmp((char*)buf, "V") == 0) {
-        Serial.print("[");
-        Serial.print(millis());
-        Serial.println(" ms] ACABOU");
-        confirmacao = 1;
+
+      if (id != nullptr && dado_recebido != nullptr) {
+        if (strcmp(id, "4") == 0 && strcmp(dado_recebido, dadoString) == 0) {
+          Serial.print("[");
+          Serial.print(millis());
+          Serial.println(" ms] ACABOU");
+          confirmacao = 1;
+        }
       }
     }
   }
   
   digitalWrite(LED_BUILTIN, LOW);
-  const char *msg = "U";
+  
+  char id[50] = "1";
+  char dadoStr[10];
+  dtostrf(dado, 0, 4, dadoStr);
+  strcat(id, ":");         // Adiciona separador
+  strcat(id, dadoStr); 
+  const char *msg = id;
+
   driver.send((uint8_t *)msg, strlen(msg));
   driver.waitPacketSent();  // Aguarda o envio completo do pacote
 }

@@ -32,25 +32,34 @@ void loop() {
       // Serial.print("[");
       // Serial.print(millis());
       // Serial.print(" ms] Recebido: ");
-      // Serial.println((char*)buf);
+      Serial.println((char*)buf);
+      char bufferCopia[32];
+      strcpy(bufferCopia, (char*)buf);
+
+      char *id = strtok(bufferCopia, ":");      // Pega a parte antes dos dois-pontos
+      char *dado = strtok(nullptr, "");         // Pega o restante da string
       
       digitalWrite(LED_BUILTIN, HIGH);
     
+      if (id != nullptr && dado != nullptr) {
       // Verifica o conteúdo recebido e envia a resposta apropriada
-      if (strcmp((char*)buf, "U") == 0) {
-        const char *msg = "A";
-        // Descomente a linha abaixo se desejar logar o envio com timestamp:
-        //  Serial.print("["); Serial.print(millis()); Serial.println(" ms] Enviando resposta: A");
-        driver.send((uint8_t *)msg, strlen(msg));
-        driver.waitPacketSent();
-        // delay(25);
-      }
-      else if (strcmp((char*)buf, "X") == 0) {
-        const char *msg = "V";
-        // Descomente a linha abaixo se desejar logar o envio com timestamp:
-        //  Serial.print("["); Serial.print(millis()); Serial.println(" ms] Enviando resposta: V");
-        driver.send((uint8_t *)msg, strlen(msg));
-        driver.waitPacketSent();
+        if (strcmp(id, "1") == 0) {
+          char resposta[50] = "2:";
+          strcat(resposta, dado);
+          // Descomente a linha abaixo se desejar logar o envio com timestamp:
+          //  Serial.print("["); Serial.print(millis()); Serial.println(" ms] Enviando resposta: A");
+          driver.send((uint8_t *)resposta, strlen(resposta));
+          driver.waitPacketSent();
+          // delay(25);
+        }
+        else if (strcmp(id, "3") == 0) {
+          char resposta[50] = "4:";
+          strcat(resposta, dado);
+          // Descomente a linha abaixo se desejar logar o envio com timestamp:
+          //  Serial.print("["); Serial.print(millis()); Serial.println(" ms] Enviando resposta: V");
+          driver.send((uint8_t *)resposta, strlen(resposta));
+          driver.waitPacketSent();
+        }
       }
     }
   }
