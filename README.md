@@ -25,17 +25,12 @@ Este projeto implementa um sistema de comunicação para sensores de monitoramen
 
 1. Clone este repositório:
    ```sh
-   git clone https://github.com/seu-usuario/seu-projeto.git
+   git clone https://github.com/caioporeto/Sensor-de-Desastres-Naturais-com-ESP32.git
    ```
-2. Instale as dependências necessárias:
-   ```sh
-   pip install -r requirements.txt
-   ```
-3. Compile e carregue o firmware no ESP32:
+2. Compile e carregue o firmware no ESP32:
    ```sh
    idf.py build flash
    ```
-4. Configure a comunicação no servidor MQTT e inicie a recepção de dados.
 
 ## Monitoramento e Análise (Fazer depois)
 
