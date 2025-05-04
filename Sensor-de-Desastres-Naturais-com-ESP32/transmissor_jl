@@ -1,7 +1,6 @@
 #define OUTPUT_PIN1 17
 #define OUTPUT_PIN2 16
 #define FREQ 125000
-#define PWM_CHANNEL 0
 #define RESOLUTION 8
 
 void setup() {
