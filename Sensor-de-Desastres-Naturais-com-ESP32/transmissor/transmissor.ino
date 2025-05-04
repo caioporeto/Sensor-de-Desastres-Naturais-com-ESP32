@@ -78,7 +78,7 @@ void loop() {
       strcpy(bufferCopia, (char*)buf);
 
       char *id = strtok(bufferCopia, ":");      // Pega a parte antes dos dois-pontos
-      char *dado_recebido = strtok(nullptr, "");         // Pega o restante da string
+      char *dado_recebido = strtok(nullptr, ""); // Pega o restante da string
 
       digitalWrite(LED_BUILTIN, HIGH);
       // Se a mensagem recebida for "V", imprime "ACABOU" e interrompe o loop

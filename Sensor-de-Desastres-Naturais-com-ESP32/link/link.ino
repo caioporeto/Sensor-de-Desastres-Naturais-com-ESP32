@@ -47,7 +47,7 @@ void loop() {
           char resposta[50] = "2:";
           strcat(resposta, dado);
           // Descomente a linha abaixo se desejar logar o envio com timestamp:
-          //  Serial.print("["); Serial.print(millis()); Serial.println(" ms] Enviando resposta: A");
+          // Serial.print("["); Serial.print(millis()); Serial.println(" ms] Enviando resposta: A");
           driver.send((uint8_t *)resposta, strlen(resposta));
           driver.waitPacketSent();
           // delay(25);
