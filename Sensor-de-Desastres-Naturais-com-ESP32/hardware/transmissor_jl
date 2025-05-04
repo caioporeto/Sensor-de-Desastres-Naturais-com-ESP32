@@ -3,6 +3,9 @@
 #define FREQ 125000
 #define RESOLUTION 8
 
+/* Portadora -> gera uma onda quadrada de 125kHz 
+que vai ser transformada em uma onda senoidal de 125kHz 
+na saída do filtro */
 void setup() {
   Serial.begin(115200);
   bool sucess = ledcAttach(OUTPUT_PIN1, FREQ, RESOLUTION);
@@ -14,6 +17,8 @@ void setup() {
   pinMode(16, OUTPUT);
 }
 
+/* Moduladora -> onda quadrada que vai modular o sinal 
+da portadora no CD4016 */
 void loop() {
   digitalWrite(OUTPUT_PIN2, HIGH);
   delay(5000);
