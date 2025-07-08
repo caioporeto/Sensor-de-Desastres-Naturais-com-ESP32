@@ -1,212 +1,464 @@
-Transmissor
-// ==== CÓDIGO DO TRANSMISSOR (NÓ 1) - Com Logs Específicos [FINAL] ====
+
+// =======================================================================
+
+// ==== CÓDIGO TRANSMISSOR (NÓ 1) - VERSÃO FINAL CORRIGIDA            ====
+
+// =======================================================================
 
 #include <RH_ASK.h>
+
 #include <SPI.h>
+
 #include <ArduinoJson.h>
 
-// --- Pinos ---
+#include <Wire.h>
+
+#include <RTClib.h>
+
+
+
+// --- Configurações ---
+
+const unsigned long INTERVALO_MEDICAO = 10; // Em segundos
+
+// ** ALTERAÇÃO 1: Aumentar o timeout para dar mais margem **
+
+const unsigned long TIMEOUT_CONFIRMACAO = 15;  // Em segundos
+
+const unsigned long TEMPO_INATIVIDADE_PARA_DORMIR = 40; // Em segundos
+
+const unsigned long DURACAO_SONO = 20; // Em segundos
+
+
+
 const int LED_PIN = 2;
+
 const int TRIG_PIN = 19;
+
 const int ECHO_PIN = 18;
 
-// --- Configurações de Comunicação ---
-const uint8_t NODE_ID = 1;
-const uint8_t LINK_CONFIRMATION_ID = 4;
-RH_ASK driver(2000, 4, 17); // RX=4, TX=17
 
-// --- Controle de Estado ---
-bool aguardandoConfirmacao = false;
-unsigned long ultimoEnvio = 0;
-const unsigned long TIMEOUT_CONFIRMACAO = 1500;
 
-// --- Controle de Medição ---
-unsigned long ultimaMedicao = 0;
-const unsigned long INTERVALO_MEDICAO = 5000; // Medir a cada 5 segundos
+// --- Endereços da rede ---
 
-// --- Buffer FIFO ---
-const int FIFO_SIZE = 10;
-float fifoBuffer[FIFO_SIZE];
-int fifoHead = 0;
-int fifoTail = 0;
-int fifoCount = 0;
+const uint8_t ENDERECO_ESTE_NO = 1;
 
-// --- Funções da Fila (FIFO) --- (sem alterações)
-bool fifo_push(float value) {
-    if (fifoCount >= FIFO_SIZE) {
-        Serial.println("!!! ERRO: Fila (FIFO) cheia! Descartando nova medição.");
-        return false;
-    }
+const uint8_t ENDERECO_NO_LINK = 2;
+
+
+
+// --- Máquina de Estados ---
+
+enum Estado { OCIOSO, ENVIANDO, AGUARDANDO_CONFIRMACAO };
+
+
+
+// --- Variáveis de estado na memória RTC ---
+
+RTC_DATA_ATTR Estado estadoAtual = OCIOSO;
+
+RTC_DATA_ATTR unsigned long ultimoEnvio = 0;
+
+RTC_DATA_ATTR unsigned long ultimaMedicao = 0;
+
+RTC_DATA_ATTR unsigned long ultimoTempoAtivo = 0;
+
+
+
+// --- Buffer FIFO na memória RTC ---
+
+const int FIFO_SIZE = 20;
+
+RTC_DATA_ATTR float fifoBuffer[FIFO_SIZE];
+
+RTC_DATA_ATTR char fifoTimestampBuffer[FIFO_SIZE][20];
+
+RTC_DATA_ATTR int fifoHead = 0, fifoTail = 0, fifoCount = 0;
+
+
+
+// --- Componentes ---
+
+RH_ASK driver(2000, 4, 17); // Pinos: RX = 4, TX = 17
+
+RTC_DS3231 rtc;
+
+
+
+// --- Funções da Fila (FIFO) - Sem alterações ---
+
+bool fifo_is_full() { return fifoCount >= FIFO_SIZE; }
+
+bool fifo_is_empty() { return fifoCount == 0; }
+
+bool fifo_push(float value, const char* timestamp) {
+
+    if (fifo_is_full()) return false;
+
     fifoBuffer[fifoTail] = value;
+
+    strcpy(fifoTimestampBuffer[fifoTail], timestamp);
+
     fifoTail = (fifoTail + 1) % FIFO_SIZE;
+
     fifoCount++;
+
     return true;
+
 }
 
-bool fifo_pop() {
-    if (fifoCount <= 0) return false;
+void fifo_pop() {
+
+    if (fifo_is_empty()) return;
+
     fifoHead = (fifoHead + 1) % FIFO_SIZE;
+
     fifoCount--;
-    return true;
+
 }
 
-float fifo_peek() {
-    if (fifoCount <= 0) return -1.0;
+float fifo_peek_data() {
+
+    if (fifo_is_empty()) return -1.0;
+
     return fifoBuffer[fifoHead];
+
 }
 
-// --- Função para medir a distância --- (sem alterações, mas com a robustez que adicionamos)
+const char* fifo_peek_timestamp() {
+
+    if (fifo_is_empty()) return "1970-01-01 00:00:00";
+
+    return fifoTimestampBuffer[fifoHead];
+
+}
+
+
+
+// --- Função de Medição (sem alterações de lógica) ---
+
 float medirDistancia() {
+
     long duration;
-    float distance = 30;
-    int tentativas = 0;
-    while (distance >= 20 && tentativas < 5) {
+
+    float distance = -1.0;
+
+    for (int i = 0; i < 3; i++) {
+
         digitalWrite(TRIG_PIN, LOW);
+
         delayMicroseconds(2);
+
         digitalWrite(TRIG_PIN, HIGH);
+
         delayMicroseconds(10);
+
         digitalWrite(TRIG_PIN, LOW);
-        duration = pulseIn(ECHO_PIN, HIGH, 50000); // Timeout no pulseIn
+
+        duration = pulseIn(ECHO_PIN, HIGH, 50000);
+
         if (duration > 0) {
+
             distance = duration * 0.034 / 2;
-        } else {
-            distance = 999; // Valor de erro
+
+            if (distance < 400) break;
+
         }
-        Serial.print("Medindo... Distancia: ");
-        Serial.println(distance);
-        tentativas++;
-        if (distance >= 20) delay(100);
+
+        delay(50);
+
     }
 
-    if (distance < 20) {
-        Serial.print("OBJETO DETECTADO A ");
-        Serial.print(distance);
-        Serial.println(" cm");
-    } else {
-        Serial.println("Nenhum objeto proximo detectado.");
-        return -1.0; 
-    }
-    return distance;
+    return (distance > 0 && distance < 400) ? distance : -1.0;
+
 }
+
+
 
 void setup() {
+
     Serial.begin(9600);
+
+    delay(1000);
+
+    Serial.println("==============================================");
+
+    Serial.println("Iniciando Transmissor (No 1) - vFinal");
+
+
+
     pinMode(LED_PIN, OUTPUT);
+
     pinMode(TRIG_PIN, OUTPUT);
+
     pinMode(ECHO_PIN, INPUT);
 
-    if (!driver.init()) {
-        Serial.println("Falha ao iniciar o Rádio RF");
-        while (true);
+
+
+    if (!driver.init()) Serial.println("!! Falha ao iniciar Radio RF !!");
+
+    driver.setThisAddress(ENDERECO_ESTE_NO);
+
+
+
+    if (!rtc.begin()) Serial.println("!! Nao foi possivel encontrar o RTC !!");
+
+
+
+    if (rtc.lostPower()) {
+
+        Serial.println("RTC sem energia, ajustando horario e RESETANDO ESTADO.");
+
+        rtc.adjust(DateTime(F(DATE), F(TIME)) - TimeSpan(0, 3, 0, 0));
+
+        estadoAtual = OCIOSO;
+
+        fifoHead = fifoTail = fifoCount = 0;
+
+        ultimaMedicao = 0;
+
+        ultimoEnvio = 0;
+
+    } else {
+
+        Serial.println(">>> Acordando do sono ou reinicio normal. Estado preservado. <<<");
+
     }
-    driver.setThisAddress(NODE_ID);
-    Serial.println("Transmissor RF (FIFO & JSON) [Logs Específicos] iniciado!");
-    digitalWrite(LED_PIN, LOW);
+
+
+
+    if (estadoAtual == ENVIANDO || estadoAtual == AGUARDANDO_CONFIRMACAO) {
+
+        digitalWrite(LED_PIN, HIGH);
+
+    } else {
+
+        digitalWrite(LED_PIN, LOW);
+
+    }
+
+
+
+    if (ultimoTempoAtivo == 0) {
+
+        ultimoTempoAtivo = rtc.now().unixtime();
+
+    }
+
+    
+
+    Serial.println("Setup completo. Iniciando operacao.");
+
 }
 
+
+
+
+
+// ** ALTERAÇÃO 2: LÓGICA DO LOOP REESTRUTURADA **
+
 void loop() {
-    // Passo 1: Medir em intervalos de tempo
-    if (millis() - ultimaMedicao > INTERVALO_MEDICAO) {
-        ultimaMedicao = millis();
-        if (fifoCount < FIFO_SIZE) {
-            Serial.println("\n--- Iniciando ciclo de medição ---");
-            float distancia = medirDistancia();
-            if (distancia > 0) {
-               if (fifo_push(distancia)) {
-                  Serial.println("Medição adicionada à fila.");
-               }
-            }
-        } else {
-            Serial.println("Fila cheia, medição pulada.");
-        }
-    }
 
-    // Passo 2: Enviar item da fila se possível
-    if (!aguardandoConfirmacao && fifoCount > 0) {
-        float distanciaParaEnviar = fifo_peek();
-        JsonDocument doc;
-        char msgParaEnviar[64];
-        doc["id"] = NODE_ID;
-        doc["data"] = distanciaParaEnviar;
-        serializeJson(doc, msgParaEnviar);
-        digitalWrite(LED_PIN, HIGH);
-        driver.send((uint8_t *)msgParaEnviar, strlen(msgParaEnviar));
-        driver.waitPacketSent();
-        digitalWrite(LED_PIN, LOW);
-        Serial.print("-> Enviando da fila: ");
-        Serial.println(msgParaEnviar);
-        aguardandoConfirmacao = true;
-        ultimoEnvio = millis();
-    }
+    DateTime agora = rtc.now();
 
-    // Passo 3: Processar recebimento de confirmação
-    if (aguardandoConfirmacao) {
-        uint8_t buf[RH_ASK_MAX_MESSAGE_LEN];
-        uint8_t buflen = sizeof(buf);
+    unsigned long agoraTimestamp = agora.unixtime();
 
-        if (driver.recv(buf, &buflen)) {
-            buf[buflen] = '\0';
-            Serial.print("<- Mensagem recebida: '");
-            Serial.print((char*)buf);
-            Serial.println("'");
-            
-            JsonDocument doc;
-            DeserializationError error = deserializeJson(doc, (char*)buf);
 
-            if (!error) {
-                int idRecebido = doc["id"];
-                
-                // ===== MUDANÇA: Lógica de verificação mais específica =====
-                if (idRecebido == LINK_CONFIRMATION_ID) {
-                    // O ID está correto, é uma tentativa de confirmação. Agora vamos checar o dado.
-                    float dadoConfirmado = doc["data"];
-                    float dadoEsperado = fifo_peek();
-                    const float epsilon = 0.01f;
 
-                    if (abs(dadoConfirmado - dadoEsperado) < epsilon) {
-                        // SUCESSO! ID e Dado conferem.
-                        Serial.println(">>> SUCESSO! Confirmacao valida recebida.");
-                        Serial.println("--- Ciclo Completo. Removendo item da fila. ---");
-                        fifo_pop();
-                        digitalWrite(LED_PIN, HIGH);
-                        delay(500);
-                        digitalWrite(LED_PIN, LOW);
-                        aguardandoConfirmacao = false;
-                    } else {
-                        // ERRO REAL! O ID de confirmação veio, mas o dado é de outra mensagem.
-                        Serial.print("!!! ERRO: ID de confirmacao correto (4), mas o dado nao confere. Esperado: ");
-                        Serial.print(dadoEsperado);
-                        Serial.print(" | Recebido: ");
-                        Serial.println(dadoConfirmado);
+    switch (estadoAtual) {
+
+        case OCIOSO:
+
+            // No estado OCIOSO, podemos fazer medições e checar se devemos dormir.
+
+            if (agoraTimestamp - ultimaMedicao >= INTERVALO_MEDICAO) {
+
+                ultimaMedicao = agoraTimestamp;
+
+                if (!fifo_is_full()) {
+
+                    float distancia = medirDistancia();
+
+                    if (distancia > 0 && distancia < 20) {
+
+                        char timestamp[20];
+
+                        sprintf(timestamp, "%04d-%02d-%02d %02d:%02d:%02d", agora.year(), agora.month(), agora.day(), agora.hour(), agora.minute(), agora.second());
+
+                        if (fifo_push(distancia, timestamp)) {
+
+                            Serial.print(">>> OBJETO DETECTADO! Distancia: ");
+
+                            Serial.print(distancia);
+
+                            Serial.println(" cm.");
+
+                            ultimoTempoAtivo = agoraTimestamp;
+
+                        }
+
                     }
-                } else {
-                    // INFORMATIVO: A mensagem não era uma confirmação. Apenas ignoramos.
-                    Serial.print("--- INFO: Mensagem ignorada. Nao e uma confirmacao (ID recebido: ");
-                    Serial.print(idRecebido);
-                    Serial.print(", esperado: ");
-                    Serial.print(LINK_CONFIRMATION_ID);
-                    Serial.println(").");
+
                 }
 
-            } else {
-                Serial.print("!!! ERRO: Falha ao interpretar JSON de confirmacao: ");
-                Serial.println(error.c_str());
             }
-        }
 
-        // Passo 4: Verificar Timeout (sem alterações)
-        if (aguardandoConfirmacao && (millis() - ultimoEnvio > TIMEOUT_CONFIRMACAO)) {
-            Serial.println("!! TIMEOUT! Reenviando o mesmo item...");
-            JsonDocument doc;
-            char msgParaEnviar[64];
-            doc["id"] = NODE_ID;
-            doc["data"] = fifo_peek(); 
-            serializeJson(doc, msgParaEnviar);
-            digitalWrite(LED_PIN, HIGH);
-            driver.send((uint8_t *)msgParaEnviar, strlen(msgParaEnviar));
-            driver.waitPacketSent();
-            digitalWrite(LED_PIN, LOW);
-            ultimoEnvio = millis();
-        }
+            
+
+            if (!fifo_is_empty()) {
+
+                estadoAtual = ENVIANDO;
+
+                break;
+
+            }
+
+
+
+            if (agoraTimestamp - ultimoTempoAtivo > TEMPO_INATIVIDADE_PARA_DORMIR) {
+
+                Serial.println("Inatividade detectada. Indo dormir...");
+
+                Serial.flush();
+
+                ESP.deepSleep(DURACAO_SONO * 1000000);
+
+            }
+
+            break;
+
+
+
+        case ENVIANDO:
+
+            {
+
+                ultimoTempoAtivo = agoraTimestamp;
+
+                digitalWrite(LED_PIN, HIGH);
+
+                
+
+                JsonDocument doc;
+
+                char msgParaEnviar[128];
+
+                doc["id"] = ENDERECO_ESTE_NO;
+
+                doc["data"] = fifo_peek_data();
+
+                doc["timestamp"] = fifo_peek_timestamp();
+
+                serializeJson(doc, msgParaEnviar);
+
+
+
+                driver.setHeaderFrom(ENDERECO_ESTE_NO);
+
+                driver.setHeaderTo(ENDERECO_NO_LINK);
+
+                
+
+                driver.send((uint8_t *)msgParaEnviar, strlen(msgParaEnviar));
+
+                driver.waitPacketSent();
+
+                Serial.print("-> Enviando para o Link (2): ");
+
+                Serial.println(msgParaEnviar);
+
+                
+
+                ultimoEnvio = agoraTimestamp;
+
+                estadoAtual = AGUARDANDO_CONFIRMACAO;
+
+            }
+
+            break;
+
+
+
+        case AGUARDANDO_CONFIRMACAO:
+
+            // Neste estado, o foco é 100% em escutar o rádio ou checar o timeout.
+
+            // NENHUMA outra tarefa (como medirDistancia) é executada aqui.
+
+            {
+
+                uint8_t buf[RH_ASK_MAX_MESSAGE_LEN];
+
+                uint8_t buflen = sizeof(buf);
+
+
+
+                if (driver.recv(buf, &buflen)) {
+
+                  Serial.println("Message found");
+
+                    if (driver.headerFrom() == ENDERECO_NO_LINK) {
+
+                        buf[buflen] = '\0';
+
+                        Serial.print("\n<- Confirmacao recebida do Link (2): ");
+
+                        Serial.println((char*)buf);
+
+
+
+                        JsonDocument confirmDoc;
+
+                        if (deserializeJson(confirmDoc, buf) == DeserializationError::Ok) {
+
+                            if (abs(confirmDoc["confirm_data"].as<float>() - fifo_peek_data()) < 0.01) {
+
+                                Serial.println(">>> SUCESSO! Confirmacao valida. Ciclo completo!");
+
+                                fifo_pop();
+
+                                digitalWrite(LED_PIN, LOW);
+
+                                estadoAtual = OCIOSO;
+
+                                ultimoTempoAtivo = agoraTimestamp;
+
+                            } else {
+
+                                Serial.println("!!! AVISO: Confirmacao com dados incorretos.");
+
+                            }
+
+                        } else {
+
+                            Serial.println("!!! ERRO: JSON da confirmacao invalido.");
+
+                        }
+
+                    }
+
+                }
+
+
+
+                if (agoraTimestamp - ultimoEnvio > TIMEOUT_CONFIRMACAO) {
+
+                    if (estadoAtual == AGUARDANDO_CONFIRMACAO) {
+
+                         Serial.println("\n!! TIMEOUT! Nenhuma confirmacao recebida. Reenviando...");
+
+                         estadoAtual = ENVIANDO;
+
+                         ultimoTempoAtivo = agoraTimestamp;
+
+                    }
+
+                }
+
+            }
+
+            break;
+
     }
+
 }
